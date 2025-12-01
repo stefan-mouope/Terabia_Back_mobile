@@ -81,6 +81,8 @@ export default function BuyerHome() {
         </ScrollView>
       </View>
 
+      
+
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Fresh Products</Text>

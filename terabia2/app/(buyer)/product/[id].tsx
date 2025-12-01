@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Star, Plus, Minus, ArrowLeft } from 'lucide-react-native';
-import api from '@/lib/api'; // Updated import
+import api from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { colors, typography, spacing, borderRadius, shadows } from '@/constants/theme';
 import { Product } from '@/types/database';
@@ -29,10 +29,10 @@ export default function ProductDetailScreen() {
     loadProduct();
   }, [id]);
 
+  
   const loadProduct = async () => {
     try {
       const { data } = await api.get(`/products/${id}`);
-
       setProduct(data);
     } catch (error) {
       console.error('Error loading product:', error);
@@ -74,6 +74,7 @@ export default function ProductDetailScreen() {
 
   const images = product.images as string[];
   const imageUrl = images && images.length > 0 ? images[0] : null;
+  const seller = product.seller; // Récupère l'objet seller (peut être null/undefined)
 
   return (
     <View style={styles.container}>
@@ -114,24 +115,32 @@ export default function ProductDetailScreen() {
 
           <View style={styles.divider} />
 
-          <View style={styles.sellerSection}>
-            <Text style={styles.sectionTitle}>Seller Information</Text>
-            <View style={styles.sellerCard}>
-              <View style={styles.sellerInfo}>
-                <Text style={styles.sellerName}>{product.seller.name}</Text>
-                <Text style={styles.sellerLocation}>{product.seller.city}</Text>
-                {product.seller.total_ratings > 0 && (
-                  <View style={styles.ratingRow}>
-                    <Star size={16} color={colors.accent.yellow} fill={colors.accent.yellow} />
-                    <Text style={styles.ratingText}>
-                      {product.seller.rating.toFixed(1)} ({product.seller.total_ratings}{' '}
-                      reviews)
-                    </Text>
-                  </View>
-                )}
+          {/* 🎯 CORRECTION: Afficher la section vendeur SEULEMENT si l'objet 'seller' est présent */}
+          {seller ? (
+            <View style={styles.sellerSection}>
+              <Text style={styles.sectionTitle}>Seller Information</Text>
+              <View style={styles.sellerCard}>
+                <View style={styles.sellerInfo}>
+                  <Text style={styles.sellerName}>{seller.name}</Text>
+                  <Text style={styles.sellerLocation}>{seller.city}</Text>
+                  {seller.total_ratings > 0 && (
+                    <View style={styles.ratingRow}>
+                      <Star size={16} color={colors.accent.yellow} fill={colors.accent.yellow} />
+                      <Text style={styles.ratingText}>
+                        {seller.rating?.toFixed(1) || 0} ({seller.total_ratings}{' '}
+                        reviews)
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
+          ) : (
+             <View style={styles.sellerSection}>
+                <Text style={styles.sectionTitle}>Seller Information</Text>
+                <Text style={styles.location}>Seller information unavailable.</Text>
+             </View>
+          )} 
 
           {product.description && (
             <>
@@ -177,6 +186,7 @@ export default function ProductDetailScreen() {
   );
 }
 
+// ... Les styles restent inchangés
 const styles = StyleSheet.create({
   container: {
     flex: 1,

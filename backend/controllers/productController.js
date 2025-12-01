@@ -1,4 +1,4 @@
-const { Product } = require('../models');
+const { Product, User } = require('../models'); // 💡 Importation de User
 
 exports.createProduct = async (req, res) => {
   try {
@@ -11,12 +11,23 @@ exports.createProduct = async (req, res) => {
 
 exports.getProductById = async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.id);
+    // 🎯 CORRECTION: Ajout de l'instruction 'include' pour charger le vendeur avec l'alias 'seller'
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        { 
+          model: User, 
+          as: 'seller', 
+          attributes: ['id', 'name', 'city', 'rating', 'total_ratings'] 
+        }
+      ]
+    });
+    
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
     res.status(200).json(product);
   } catch (error) {
+    console.error('Error in getProductById:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -52,7 +63,9 @@ exports.deleteProduct = async (req, res) => {
 
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.findAll();
+    const products = await Product.findAll({
+      include: [{ model: User, as: 'seller', attributes: ['id', 'name', 'city'] }]
+    });
     res.status(200).json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -63,6 +76,7 @@ exports.getProductsBySellerId = async (req, res) => {
   try {
     const products = await Product.findAll({
       where: { seller_id: req.params.seller_id },
+      include: [{ model: User, as: 'seller', attributes: ['id', 'name', 'city'] }]
     });
     res.status(200).json(products);
   } catch (error) {

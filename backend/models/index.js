@@ -11,48 +11,54 @@ const Review = require('./reviewModel')(sequelize, Sequelize);
 const AuthUser = require('./authUserModel')(sequelize, Sequelize);
 
 // ================================================================
-// DÉFINITION DES ASSOCIATIONS (CORRIGÉES AVEC ALIAS)
+// DÉFINITION DES ASSOCIATIONS (CORRIGÉES ET EXPLICITES)
 // ================================================================
 
 // Authentification
 AuthUser.hasOne(User, { foreignKey: 'id', onDelete: 'CASCADE' });
 User.belongsTo(AuthUser, { foreignKey: 'id' });
 
-// Produits & Vendeur
-User.hasMany(Product, { foreignKey: 'seller_id', onDelete: 'CASCADE' });
-Product.belongsTo(User, { foreignKey: 'seller_id' });
+// --- PRODUITS ---
 
-Category.hasMany(Product, { foreignKey: 'category_id' });
-Product.belongsTo(Category, { foreignKey: 'category_id' });
+// 🎯 CORRECTION: Ajout des alias 'seller' et 'soldProducts'
+User.hasMany(Product, { foreignKey: 'seller_id', onDelete: 'CASCADE', as: 'soldProducts' });
+Product.belongsTo(User, { foreignKey: 'seller_id', as: 'seller' }); 
 
-// Commandes
+Category.hasMany(Product, { foreignKey: 'category_id', as: 'products' });
+Product.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
+
+// --- COMMANDES ---
+
+// L'acheteur (buyer)
 User.hasMany(Order, { foreignKey: 'buyer_id', as: 'orders' });
 Order.belongsTo(User, { foreignKey: 'buyer_id', as: 'buyer' });
 
+// --- LIVRAISONS ---
+
 // Agence / Livreur
-// ⚠️ AJOUT DE 'as: agency' et 'as: deliveries'
 User.hasMany(Delivery, { foreignKey: 'agency_id', as: 'deliveries' });
 Delivery.belongsTo(User, { foreignKey: 'agency_id', as: 'agency' });
 
 // Livraison <-> Commande
-// ⚠️ C'EST ICI QUE TU AVAIS L'ERREUR 500 !
-// J'ai ajouté "as: 'Order'" pour matcher avec le contrôleur.
 Order.hasOne(Delivery, { foreignKey: 'order_id', onDelete: 'CASCADE', as: 'delivery' });
 Delivery.belongsTo(Order, { foreignKey: 'order_id', as: 'Order' });
 
-// Transactions
-Order.hasMany(Transaction, { foreignKey: 'order_id', onDelete: 'CASCADE' });
-Transaction.belongsTo(Order, { foreignKey: 'order_id' });
+// --- TRANSACTIONS ---
 
-// Reviews
-Order.hasMany(Review, { foreignKey: 'order_id' });
-Review.belongsTo(Order, { foreignKey: 'order_id' });
+Order.hasMany(Transaction, { foreignKey: 'order_id', onDelete: 'CASCADE', as: 'transactions' });
+Transaction.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
 
-User.hasMany(Review, { foreignKey: 'reviewer_id' });
-Review.belongsTo(User, { foreignKey: 'reviewer_id' });
+// --- REVIEWS ---
 
-User.hasMany(Review, { foreignKey: 'reviewee_id' });
-Review.belongsTo(User, { foreignKey: 'reviewee_id' });
+Order.hasMany(Review, { foreignKey: 'order_id', as: 'reviews' });
+Review.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
+
+// Reviews données/reçues
+User.hasMany(Review, { foreignKey: 'reviewer_id', as: 'givenReviews' });
+Review.belongsTo(User, { foreignKey: 'reviewer_id', as: 'reviewer' });
+
+User.hasMany(Review, { foreignKey: 'reviewee_id', as: 'receivedReviews' });
+Review.belongsTo(User, { foreignKey: 'reviewee_id', as: 'reviewee' });
 
 
 module.exports = {
