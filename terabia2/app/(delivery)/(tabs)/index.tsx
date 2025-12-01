@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { 
-  View, Text, StyleSheet, FlatList, TouchableOpacity, 
-  ActivityIndicator, RefreshControl, Alert 
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  ActivityIndicator, RefreshControl, Alert
 } from 'react-native';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';

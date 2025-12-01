@@ -13,7 +13,7 @@ exports.createDeliveryFromOrder = async (order, transaction) => {
 
   const deliveryData = {
     order_id: order.id,
-    agency_id: null, 
+    agency_id: null,
     status: DELIVERY_STATUS.AVAILABLE, 
     
     // CHAMPS D'ADRESSE
@@ -68,6 +68,7 @@ exports.updateDelivery = async (req, res) => {
     }
     const updatedDelivery = await Delivery.findByPk(req.params.id);
     res.status(200).json(updatedDelivery);
+    
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
