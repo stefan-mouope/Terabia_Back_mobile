@@ -105,7 +105,7 @@ export default function checkout() {
             payment_method: selectedPayment,
             payment_status: 'pending' as const,
             delivery_address: user.address || 'No address provided',
-            delivery_city: user.city || 'No city provided',o
+            delivery_city: user.city || 'No city provided',
             items: sellerItems.map((item) => ({
               product_id: item.productId,
               quantity: item.quantity,
