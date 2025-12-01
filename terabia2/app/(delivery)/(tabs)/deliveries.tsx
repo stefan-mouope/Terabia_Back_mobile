@@ -61,7 +61,7 @@ export default function DeliveriesScreen() {
   const updateStatus = async (deliveryId: number, newStatus: string) => {
     try {
       await axios.put(`${API_BASE_URL}/deliveries/${deliveryId}`, { 
-        status: newStatus
+        status: newStatus 
       });
       // On recharge la liste pour voir le changement de statut
       fetchMyMissions();

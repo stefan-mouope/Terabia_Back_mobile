@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
-const cors = require('cors'); // ← Ajouté et configuré proprement
+const cors = require('cors');
 const sequelize = require('./config/sequelize');
 const config = require('./config/config');
 
@@ -21,47 +21,51 @@ const app = express();
 
 // ====================== MIDDLEWARES ======================
 
-// CORS : indispensable pour React Native (mobile + émulateur)
+// CORS → essentiel pour mobile / web
 app.use(cors({
-  origin: true, // autorise toutes les origines en dev (ou mets une liste précise en prod)
-  credentials: true,
+  origin: '*', // Autorise toutes les origines en dev, à restreindre en prod
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: false
 }));
 
-// Body parser (JSON + URL encoded)
+// Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Morgan avec logs magnifiques + IP du client (très utile avec Genymotion/téléphone)
-app.use(morgan((tokens, req, res) => {
-  const status = tokens.status(req, res);
-  const color = status >= 500 ? 31   // rouge
-              : status >= 400 ? 33   // jaune
-              : status >= 300 ? 36   // cyan
-              : status >= 200 ? 32   // vert
-              : 0;
+// Logger Morgan custom
+app.use(
+  morgan((tokens, req, res) => {
+    const status = tokens.status(req, res);
+    const color =
+      status >= 500 ? 31 :
+      status >= 400 ? 33 :
+      status >= 300 ? 36 :
+      status >= 200 ? 32 : 0;
 
-  return [
-    '\x1b[35m➜',                              // flèche violette
-    '\x1b[1m' + tokens.method(req, res) + '\x1b[0m',
-    tokens.url(req, res),
-    '\x1b[' + color + 'm' + status + '\x1b[0m',
-    tokens['response-time'](req, res) + 'ms',
-    '\x1b[90mfrom\x1b[0m',
-    tokens['remote-addr'](req, res) || 'localhost',
-    '\x1b[90m@\x1b[0m ' + new Date().toLocaleTimeString()
-  ].join(' ');
-}));
+    return [
+      '\x1b[35m➜\x1b[0m',
+      '\x1b[1m' + tokens.method(req, res) + '\x1b[0m',
+      tokens.url(req, res),
+      `\x1b[${color}m${status}\x1b[0m`,
+      tokens['response-time'](req, res) + 'ms',
+      '\x1b[90mfrom\x1b[0m',
+      req.ip.replace('::ffff:', ''),
+      '\x1b[90m@\x1b[0m',
+      new Date().toLocaleTimeString()
+    ].join(' ');
+  })
+);
 
-// Route de santé + info utile au démarrage
+// Health check endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: '🚀 Terabia API is running perfectly !',
+    message: '🚀 Terabia API is running perfectly!',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     endpoints: {
-      auth: '/api/auth/signup, /api/auth/login',
+      auth: '/api/auth/login',
       users: '/api/users',
-      products: '/api/products',
+      products: '/api/products'
     }
   });
 });
@@ -76,31 +80,34 @@ app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/reviews', reviewRoutes);
 
-// ====================== ERROR HANDLING ======================
+// ====================== ERROR HANDLERS ======================
 app.use(notFound);
 app.use(errorHandler);
 
-// ====================== DEMARRAGE SERVEUR ======================
+// ====================== SERVER START ======================
 const PORT = config.PORT || 3000;
 
 const startServer = async () => {
   try {
+    console.log("🔌 Attempting DB connection...");
     await sequelize.authenticate();
-    console.log('✅ Connexion à la base de données réussie.');
+    console.log("✅ Database connection established!");
 
-    await sequelize.sync({ alter: true }); // ou { force: false } en prod
-    console.log('✅ Modèles synchronisés avec la BDD.');
+    // ❗ alter: true → uniquement en développement
+    await sequelize.sync();
+    console.log("🔄 Models synchronized.");
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log('\n🎉 Serveur démarré avec succès !\n');
-      console.log(`   🌍 Local:            http://localhost:${PORT}`);
-      console.log(`   📱 Téléphone Android: http://192.168.0.110:${PORT}`);
-      console.log(`   🖥️  Genymotion:       http://172.18.0.1:${PORT}`);
-      console.log(`   🐳 Android Studio:    http://10.0.2.2:${PORT}\n`);
-      console.log(`   ⏻ Arrêt: Ctrl+C\n`);
+      console.log("\n🎉 Server started successfully!\n");
+      console.log(`   🌍 Localhost:           http://localhost:${PORT}`);
+      console.log(`   📱 Real Android phone:  http://${config.LOCAL_IP}:${PORT}`);
+      console.log(`   📱 Genymotion:          http://10.0.3.2:${PORT}`);
+      console.log(`   🐳 Android Studio:      http://10.0.2.2:${PORT}\n`);
+      console.log("   ⏻ Stop server: Ctrl+C\n");
     });
+
   } catch (error) {
-    console.error('💥 Impossible de démarrer le serveur :', error);
+    console.error("💥 Server failed to start:", error);
     process.exit(1);
   }
 };

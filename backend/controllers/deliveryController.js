@@ -1,5 +1,6 @@
 const { Delivery, Order } = require('../models');
-const { DELIVERY_STATUS } = require('../constants/enums'); 
+const { DELIVERY_STATUS, ORDER_STATUS } = require('../constants/enums'); 
+const { updateOrderStatus } = require('./orderController');
 
 /**
  * NOUVELLE FONCTION : Crée un enregistrement de livraison à partir d'un objet Order.
@@ -58,21 +59,60 @@ exports.getDeliveryById = async (req, res) => {
   }
 };
 
+
+
 exports.updateDelivery = async (req, res) => {
   try {
-    const [updatedRows] = await Delivery.update(req.body, {
-      where: { id: req.params.id },
-    });
-    if (updatedRows === 0) {
+    const delivery = await Delivery.findByPk(req.params.id);
+    if (!delivery) {
       return res.status(404).json({ error: 'Delivery not found' });
     }
-    const updatedDelivery = await Delivery.findByPk(req.params.id);
-    res.status(200).json(updatedDelivery);
-    
+
+    // 🔥 GESTION SPÉCIALE POUR CANCELLED → AVAILABLE
+    if (req.body.status === DELIVERY_STATUS.CANCELLED) {
+      
+      // On remet la livraison disponible
+      delivery.status = DELIVERY_STATUS.AVAILABLE;
+      delivery.agency_id = null;   // libérer l’agence
+      delivery.accepted_at = null; // remettre à zéro
+      
+      await delivery.save();
+
+      // Synchroniser la commande (optionnel)
+      await updateOrderStatus(delivery.order_id, ORDER_STATUS.PENDING);
+
+      return res.status(200).json(delivery);
+    }
+
+    // ❗️ Si ce n’est pas CANCELLED, on applique la mise à jour normale
+    await delivery.update(req.body);
+
+    // ► Synchronisation des statuts
+    if (req.body.status) {
+      switch (req.body.status) {
+
+        case DELIVERY_STATUS.ACCEPTED:
+          await updateOrderStatus(delivery.order_id, ORDER_STATUS.ACCEPTED);
+          break;
+
+        case DELIVERY_STATUS.EN_ROUTE:
+          await updateOrderStatus(delivery.order_id, ORDER_STATUS.IN_TRANSIT);
+          break;
+
+        case DELIVERY_STATUS.DELIVERED:
+          await updateOrderStatus(delivery.order_id, ORDER_STATUS.DELIVERED);
+          break;
+      }
+    }
+
+    res.status(200).json(delivery);
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+
 
 exports.deleteDelivery = async (req, res) => {
   try {

@@ -35,6 +35,20 @@ exports.createOrder = async (req, res) => {
     });
   }
 };
+export const updateOrderStatus = async (order_id,status) => {
+  try{
+    const [updatedRows] = await Order.update({ status }, {
+      where: { id: order_id },
+    });
+    if (updatedRows === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const updatedOrder = await Order.findByPk(order_id);
+    res.status(200).json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
 
 /**
  * Récupère une commande par son ID.

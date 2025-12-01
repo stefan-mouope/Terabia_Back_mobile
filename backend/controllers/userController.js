@@ -59,6 +59,34 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+
+// GET /api/users/me
+exports.getCurrentUser = async (req, res) => {
+  try {
+    // On suppose que tu utilises un middleware d'auth qui ajoute req.userId
+    const userId = req.userId;
+
+    console.log('Fetching current user with ID:', userId);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findByPk(userId, {
+      attributes: { exclude: ['password', 'encrypted_password'] }, // ne pas renvoyer le mot de passe
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 exports.getSellerStats = async (req, res) => {
   try {
     const sellerId = req.params.id;
