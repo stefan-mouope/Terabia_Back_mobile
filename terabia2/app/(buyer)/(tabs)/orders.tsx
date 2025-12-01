@@ -92,6 +92,7 @@ export default function OrdersScreen() {
                 <Text style={styles.itemCount}>
                   {itemCount} {itemCount === 1 ? 'item' : 'items'}
                 </Text>
+                
                 <Text style={styles.orderTotal}>{item.total} XAF</Text>
               </View>
 

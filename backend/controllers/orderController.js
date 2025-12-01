@@ -1,127 +1,78 @@
+// backend/controllers/orderController.js
 const { Order } = require('../models');
-// 1. IMPORT NÉCESSAIRE DU CONTRÔLEUR DE LIVRAISON ET DE L'INSTANCE SEQUELIZE
-const deliveryController = require('./deliveryController'); 
-const sequelize = Order.sequelize; 
+const deliveryController = require('./deliveryController');
+const sequelize = Order.sequelize;
+const orderService = require('../services/orderService');
 
-/**
- * Crée une nouvelle commande et la livraison associée en utilisant une transaction.
- */
+// Crée une commande avec livraison
 exports.createOrder = async (req, res) => {
-  // Démarre la transaction pour lier la Commande et la Livraison
   const transaction = await sequelize.transaction();
-
   try {
-    // 1. CRÉATION DE LA COMMANDE (dans la transaction)
     const newOrder = await Order.create(req.body, { transaction });
-
-    // 2. CRÉATION AUTOMATIQUE DE LA LIVRAISON (dans la transaction)
-    await deliveryController.createDeliveryFromOrder(newOrder, transaction); 
-
-    // 3. VALIDER : Si les deux sont réussis, on valide les écritures
+    await deliveryController.createDeliveryFromOrder(newOrder, transaction);
     await transaction.commit();
-    
-    // Réponse de succès
     res.status(201).json(newOrder);
-
   } catch (error) {
-    // 4. ANNULER : Si l'une des étapes échoue, on annule toutes les modifications
     if (transaction) await transaction.rollback();
-    
-    console.error("Erreur critique lors de la création de la commande et de la livraison :", error.message);
-
-    res.status(500).json({ 
-      error: "La commande n'a pas pu être créée en raison d'une erreur interne (Rollback effectué).",
-      details: error.message
-    });
-  }
-};
-export const updateOrderStatus = async (order_id,status) => {
-  try{
-    const [updatedRows] = await Order.update({ status }, {
-      where: { id: order_id },
-    });
-    if (updatedRows === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    const updatedOrder = await Order.findByPk(order_id);
-    res.status(200).json(updatedOrder);
-  } catch (error) {
+    console.error("Erreur création commande :", error.message);
     res.status(500).json({ error: error.message });
   }
-}
+};
 
-/**
- * Récupère une commande par son ID.
- */
+// Met à jour le statut d'une commande
+exports.updateOrderStatus = async (order_id, status, res) => {
+  try {
+    const updatedRows = await orderService.updateOrderStatus(order_id, status);
+    if (!updatedRows) return res.status(404).json({ error: 'Order not found' });
+
+    const updatedOrder = await Order.findByPk(order_id);
+    res.status(200).json(updatedOrder);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Récupérer commande par ID
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findByPk(req.params.id);
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    res.status(200).json(order);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-/**
- * Met à jour une commande par son ID.
- */
+// Met à jour une commande
 exports.updateOrder = async (req, res) => {
   try {
-    const [updatedRows] = await Order.update(req.body, {
-      where: { id: req.params.id },
-    });
-    if (updatedRows === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
+    const [updated] = await Order.update(req.body, { where: { id: req.params.id } });
+    if (!updated) return res.status(404).json({ error: 'Order not found' });
+
     const updatedOrder = await Order.findByPk(req.params.id);
-    res.status(200).json(updatedOrder);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    res.json(updatedOrder);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-/**
- * Supprime une commande par son ID.
- */
+// Supprimer commande
 exports.deleteOrder = async (req, res) => {
   try {
-    const deletedRows = await Order.destroy({
-      where: { id: req.params.id },
-    });
-    if (deletedRows === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    res.status(200).json({ message: 'Order deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    const deletedRows = await Order.destroy({ where: { id: req.params.id } });
+    if (!deletedRows) return res.status(404).json({ error: 'Order not found' });
+    res.json({ message: 'Order deleted successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-/**
- * Récupère toutes les commandes.
- */
+// Toutes les commandes
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.findAll();
-    res.status(200).json(orders);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    res.json(orders);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-/**
- * Récupère toutes les commandes d'un acheteur spécifique.
- */
+// Commandes d’un acheteur
 exports.getOrdersByBuyerId = async (req, res) => {
   try {
-    const orders = await Order.findAll({
-      where: { buyer_id: req.params.buyer_id },
-    });
-    res.status(200).json(orders);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    const orders = await Order.findAll({ where: { buyer_id: req.params.buyer_id } });
+    res.json(orders);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 };
