@@ -1,9 +1,9 @@
-require("dotenv").config();
+// require("dotenv").config();
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid");
 
-const API_BASE = process.env.API_BASE_URL || "http://localhost:3000/api";
+const API_BASE =  "http://localhost:3000/api";
 
 const hashedPassword = async (password) => {
   // On hash le mot de passe côté client si nécessaire

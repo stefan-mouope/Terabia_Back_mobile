@@ -121,8 +121,7 @@ exports.createProduct = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la création du produit',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      message: error.message ,
     });
   }
 };
