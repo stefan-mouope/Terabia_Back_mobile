@@ -1,7 +1,7 @@
 const { Order } = require('../models');
 // 1. IMPORT NÉCESSAIRE DU CONTRÔLEUR DE LIVRAISON ET DE L'INSTANCE SEQUELIZE
-const deliveryController = require('./deliveryController'); 
-const sequelize = Order.sequelize; 
+const deliveryController = require('./deliveryController');
+const sequelize = Order.sequelize;
 
 /**
  * Cré// backend/controllers/orderController.js
