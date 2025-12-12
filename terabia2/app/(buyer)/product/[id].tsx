@@ -35,9 +35,8 @@ export default function ProductDetailScreen() {
     try {
       setLoading(true);
       const { data } = await api.get(`/products/${id}`);
-
-      // Ton backend renvoie { success: true, data: { ...product + seller } }
-      setProduct(data?.data || data || null);
+      const productData = data?.data || data;
+      setProduct(productData);
     } catch (error: any) {
       console.error('Erreur chargement produit:', error);
       Alert.alert('Erreur', 'Impossible de charger le produit');
@@ -52,8 +51,7 @@ export default function ProductDetailScreen() {
 
     const mainImage =
       product.main_image ||
-      (Array.isArray(product.images) && product.images[0]?.url) ||
-      '';
+      (product.images.length > 0 ? product.images[0].url : '');
 
     addItem({
       productId: product.id,
@@ -75,8 +73,7 @@ export default function ProductDetailScreen() {
   // Image principale
   const mainImageUrl =
     product?.main_image ||
-    (Array.isArray(product?.images) && product.images[0]?.url) ||
-    null;
+    (product?.images.length > 0 ? product.images[0].url : null);
 
   if (loading) return <LoadingSpinner />;
   if (!product) return null;
@@ -91,6 +88,7 @@ export default function ProductDetailScreen() {
         <ArrowLeft size={24} color={colors.neutral[900]} />
       </TouchableOpacity>
 
+      {/* Contenu principal scrollable */}
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Image principale */}
         <View style={styles.imageContainer}>
@@ -103,7 +101,7 @@ export default function ProductDetailScreen() {
           )}
         </View>
 
-        {/* Contenu */}
+        {/* Toutes les infos */}
         <View style={styles.content}>
           <Text style={styles.title}>{product.title}</Text>
 
@@ -112,14 +110,12 @@ export default function ProductDetailScreen() {
               <Text style={styles.price}>
                 {Number(product.price).toLocaleString()} FCFA
               </Text>
-              {product.unit && (
-                <Text style={styles.unit}>par {product.unit}</Text>
-              )}
+              {product.unit && <Text style={styles.unit}>par {product.unit}</Text>}
             </View>
 
             <View style={[styles.stockBadge, !inStock && styles.outOfStockBadge]}>
               <Text style={styles.stockText}>
-                {inStock ? `${product.stock} en stock` : 'Rupture'}
+                {inStock ? `${product.stock} en stock` : 'Rupture de stock'}
               </Text>
             </View>
           </View>
@@ -135,23 +131,26 @@ export default function ProductDetailScreen() {
           <View style={styles.sellerSection}>
             <Text style={styles.sectionTitle}>Vendu par</Text>
             <View style={styles.sellerCard}>
-              <View style={styles.sellerInfo}>
-                <Text style={styles.sellerName}>{product.seller?.name || 'Vendeur'}</Text>
-                <Text style={styles.sellerLocation}>{product.seller?.city || 'Localisation inconnue'}</Text>
+              <Text style={styles.sellerName}>
+                {product.seller?.name || 'Vendeur inconnu'}
+              </Text>
+              <Text style={styles.sellerLocation}>
+                {product.seller?.city || 'Localisation inconnue'}
+              </Text>
 
-                {product.seller?.rating > 0 && (
-                  <View style={styles.ratingRow}>
-                    <Star size={16} color={colors.accent.yellow} fill={colors.accent.yellow} />
-                    <Text style={styles.ratingText}>
-                      {product.seller.rating.toFixed(1)} ({product.seller.total_ratings || 0} avis)
-                    </Text>
-                  </View>
-                )}
-              </View>
+              {product.seller && product.seller.rating > 0 && (
+                <View style={styles.ratingRow}>
+                  <Star size={16} color={colors.accent.yellow} fill={colors.accent.yellow} />
+                  <Text style={styles.ratingText}>
+                    {product.seller.rating.toFixed(1)} ({product.seller.total_ratings || 0} avis)
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
-          {product.description ? (
+          {/* Description */}
+          {product.description && (
             <>
               <View style={styles.divider} />
               <View style={styles.descriptionSection}>
@@ -159,11 +158,11 @@ export default function ProductDetailScreen() {
                 <Text style={styles.description}>{product.description}</Text>
               </View>
             </>
-          ) : null}
+          )}
         </View>
       </ScrollView>
 
-      {/* Footer : quantité + ajouter au panier */}
+      {/* Footer fixe pour ajouter au panier */}
       {inStock && (
         <View style={styles.footer}>
           <View style={styles.quantityContainer}>
@@ -208,13 +207,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     left: spacing.lg,
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 10,
+    backgroundColor: colors.background,
+    padding: 10,
+    borderRadius: borderRadius.full,
     ...shadows.lg,
   },
   imageContainer: {
@@ -228,9 +224,9 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     flex: 1,
+    backgroundColor: colors.neutral[200],
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.neutral[200],
   },
   placeholderText: {
     fontSize: 18,
@@ -241,7 +237,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   title: {
-    fontSize: typography.sizes['2xl'],
+    fontSize: 28,
     fontWeight: '700',
     color: colors.neutral[900],
     marginBottom: spacing.md,
@@ -258,22 +254,22 @@ const styles = StyleSheet.create({
     color: colors.primary.green,
   },
   unit: {
-    fontSize: typography.sizes.sm,
+    fontSize: 14,
     color: colors.neutral[600],
-    marginTop: 2,
+    marginTop: 4,
   },
   stockBadge: {
-    backgroundColor: colors.success + '20',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    backgroundColor: '#10b98120',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: borderRadius.lg,
   },
   outOfStockBadge: {
-    backgroundColor: colors.error + '20',
+    backgroundColor: '#ef444420',
   },
   stockText: {
-    fontSize: typography.sizes.sm,
-    color: colors.success,
+    fontSize: 14,
+    color: '#10b981',
     fontWeight: '600',
   },
   locationRow: {
@@ -282,8 +278,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   location: {
-    marginLeft: spacing.xs,
-    fontSize: typography.sizes.base,
+    marginLeft: 6,
+    fontSize: 16,
     color: colors.neutral[700],
   },
   divider: {
@@ -292,43 +288,42 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xl,
   },
   sectionTitle: {
-    fontSize: typography.sizes.lg,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.neutral[900],
     marginBottom: spacing.md,
   },
   sellerCard: {
     backgroundColor: colors.neutral[50],
-    borderRadius: borderRadius.xl,
     padding: spacing.lg,
+    borderRadius: borderRadius.xl,
     ...shadows.sm,
   },
-  sellerInfo: {},
   sellerName: {
-    fontSize: typography.sizes.lg,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.neutral[900],
   },
   sellerLocation: {
-    fontSize: typography.sizes.sm,
+    fontSize: 14,
     color: colors.neutral[600],
     marginTop: 2,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: 8,
   },
   ratingText: {
-    marginLeft: spacing.xs,
-    fontSize: typography.sizes.sm,
+    marginLeft: 6,
+    fontSize: 14,
     color: colors.neutral[700],
   },
   descriptionSection: {
     marginBottom: spacing.xl,
   },
   description: {
-    fontSize: typography.sizes.base,
+    fontSize: 16,
     color: colors.neutral[700],
     lineHeight: 24,
   },
@@ -346,23 +341,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.neutral[100],
     borderRadius: borderRadius.xl,
-    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     marginRight: spacing.lg,
   },
   quantityButton: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.lg,
     backgroundColor: colors.background,
-    alignItems: 'center',
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   disabledButton: {
     opacity: 0.5,
   },
   quantityText: {
-    marginHorizontal: spacing.lg,
+    marginHorizontal: 20,
     fontSize: 20,
     fontWeight: '600',
     minWidth: 40,
@@ -370,6 +365,5 @@ const styles = StyleSheet.create({
   },
   addButton: {
     flex: 1,
-    marginLeft: spacing.base,
   },
 });

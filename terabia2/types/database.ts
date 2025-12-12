@@ -38,6 +38,28 @@ export interface Category {
   created_at: string;
 }
 
+// @/types/database.ts
+
+export interface ProductImage {
+  url: string;
+  publicId: string;
+  width?: number | null;
+  height?: number | null;
+}
+
+export interface Seller {
+  id: string;
+  name: string;
+  username?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  avatar_url?: string | null;
+  rating: number;
+  total_ratings: number;
+  is_verified?: boolean;
+}
+
 export interface Product {
   id: number;
   seller_id: string;
@@ -45,17 +67,20 @@ export interface Product {
   title: string;
   description: string | null;
   price: number;
-  currency: string;
+  currency?: string;
   stock: number;
-  unit: string;
-  images: Json;
+  unit: string | null;
+  images: ProductImage[];           // ← tableau d'objets Cloudinary
+  main_image?: string | null;       // ← URL de l'image principale (facultatif)
   location_city: string;
-  location_coords: Json | null;
+  location_coords?: { lat: number; lng: number } | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-}
 
+  // Relation incluse par le backend
+  seller?: Seller;
+}
 export interface Order {
   id: number;
   buyer_id: string;

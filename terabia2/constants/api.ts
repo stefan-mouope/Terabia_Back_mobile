@@ -11,3 +11,6 @@ const SERVER_IP = '192.168.0.109';
 export const API_BASE_URL = __DEV__ 
   ? `http://${Platform.OS === 'android' ? SERVER_IP : 'localhost'}:3000/api`
   : 'https://ton-api-prod.com/api';
+
+
+// export const API_BASE_URL = 'https://terabia-back-mobile.onrender.com/api'
