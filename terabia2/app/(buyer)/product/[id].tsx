@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Star, Plus, Minus, ArrowLeft } from 'lucide-react-native';
-import api from '@/lib/api'; // Updated import
+
+import api from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { colors, typography, spacing, borderRadius, shadows } from '@/constants/theme';
 import { Product } from '@/types/database';
@@ -21,22 +22,25 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { addItem } = useCart();
-  const [product, setProduct] = useState<any>(null);
+
+  const [product, setProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadProduct();
+    if (id) loadProduct();
   }, [id]);
 
   const loadProduct = async () => {
     try {
+      setLoading(true);
       const { data } = await api.get(`/products/${id}`);
 
-      setProduct(data);
-    } catch (error) {
-      console.error('Error loading product:', error);
-      Alert.alert('Error', 'Failed to load product');
+      // Ton backend renvoie { success: true, data: { ...product + seller } }
+      setProduct(data?.data || data || null);
+    } catch (error: any) {
+      console.error('Erreur chargement produit:', error);
+      Alert.alert('Erreur', 'Impossible de charger le produit');
       router.back();
     } finally {
       setLoading(false);
@@ -46,63 +50,76 @@ export default function ProductDetailScreen() {
   const handleAddToCart = () => {
     if (!product) return;
 
-    const images = product.images as string[];
+    const mainImage =
+      product.main_image ||
+      (Array.isArray(product.images) && product.images[0]?.url) ||
+      '';
+
     addItem({
       productId: product.id,
       title: product.title,
-      price: product.price,
+      price: Number(product.price),
       quantity,
-      image: images && images.length > 0 ? images[0] : '',
+      image: mainImage,
       sellerId: product.seller_id,
       stock: product.stock,
-      unit: product.unit,
+      unit: product.unit || 'unité',
     });
 
-    Alert.alert('Success', 'Added to cart', [
-      { text: 'Continue Shopping', onPress: () => router.back() },
-      { text: 'View Cart', onPress: () => router.push('/(buyer)/(tabs)/cart') },
+    Alert.alert('Ajouté au panier !', `"${product.title}" ×${quantity}`, [
+      { text: 'Continuer', style: 'cancel' },
+      { text: 'Voir le panier', onPress: () => router.push('/(buyer)/(tabs)/cart') },
     ]);
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  // Image principale
+  const mainImageUrl =
+    product?.main_image ||
+    (Array.isArray(product?.images) && product.images[0]?.url) ||
+    null;
 
-  if (!product) {
-    return null;
-  }
+  if (loading) return <LoadingSpinner />;
+  if (!product) return null;
 
-  const images = product.images as string[];
-  const imageUrl = images && images.length > 0 ? images[0] : null;
+  const inStock = product.stock > 0;
+  const canIncrease = quantity < product.stock;
 
   return (
     <View style={styles.container}>
+      {/* Bouton retour */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <ArrowLeft size={24} color={colors.neutral[900]} />
       </TouchableOpacity>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Image principale */}
         <View style={styles.imageContainer}>
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+          {mainImageUrl ? (
+            <Image source={{ uri: mainImageUrl }} style={styles.image} resizeMode="cover" />
           ) : (
             <View style={styles.imagePlaceholder}>
-              <Text style={styles.placeholderText}>No Image</Text>
+              <Text style={styles.placeholderText}>Pas d'image</Text>
             </View>
           )}
         </View>
 
+        {/* Contenu */}
         <View style={styles.content}>
           <Text style={styles.title}>{product.title}</Text>
 
           <View style={styles.priceRow}>
             <View>
-              <Text style={styles.price}>{product.price} XAF</Text>
-              <Text style={styles.unit}>per {product.unit}</Text>
+              <Text style={styles.price}>
+                {Number(product.price).toLocaleString()} FCFA
+              </Text>
+              {product.unit && (
+                <Text style={styles.unit}>par {product.unit}</Text>
+              )}
             </View>
-            <View style={styles.stockBadge}>
+
+            <View style={[styles.stockBadge, !inStock && styles.outOfStockBadge]}>
               <Text style={styles.stockText}>
-                {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                {inStock ? `${product.stock} en stock` : 'Rupture'}
               </Text>
             </View>
           </View>
@@ -114,18 +131,19 @@ export default function ProductDetailScreen() {
 
           <View style={styles.divider} />
 
+          {/* Infos vendeur */}
           <View style={styles.sellerSection}>
-            <Text style={styles.sectionTitle}>Seller Information</Text>
+            <Text style={styles.sectionTitle}>Vendu par</Text>
             <View style={styles.sellerCard}>
               <View style={styles.sellerInfo}>
-                <Text style={styles.sellerName}>{product.seller.name}</Text>
-                <Text style={styles.sellerLocation}>{product.seller.city}</Text>
-                {product.seller.total_ratings > 0 && (
+                <Text style={styles.sellerName}>{product.seller?.name || 'Vendeur'}</Text>
+                <Text style={styles.sellerLocation}>{product.seller?.city || 'Localisation inconnue'}</Text>
+
+                {product.seller?.rating > 0 && (
                   <View style={styles.ratingRow}>
                     <Star size={16} color={colors.accent.yellow} fill={colors.accent.yellow} />
                     <Text style={styles.ratingText}>
-                      {product.seller.rating.toFixed(1)} ({product.seller.total_ratings}{' '}
-                      reviews)
+                      {product.seller.rating.toFixed(1)} ({product.seller.total_ratings || 0} avis)
                     </Text>
                   </View>
                 )}
@@ -133,7 +151,7 @@ export default function ProductDetailScreen() {
             </View>
           </View>
 
-          {product.description && (
+          {product.description ? (
             <>
               <View style={styles.divider} />
               <View style={styles.descriptionSection}>
@@ -141,11 +159,12 @@ export default function ProductDetailScreen() {
                 <Text style={styles.description}>{product.description}</Text>
               </View>
             </>
-          )}
+          ) : null}
         </View>
       </ScrollView>
 
-      {product.stock > 0 && (
+      {/* Footer : quantité + ajouter au panier */}
+      {inStock && (
         <View style={styles.footer}>
           <View style={styles.quantityContainer}>
             <TouchableOpacity
@@ -154,20 +173,23 @@ export default function ProductDetailScreen() {
             >
               <Minus size={20} color={colors.primary.green} />
             </TouchableOpacity>
+
             <Text style={styles.quantityText}>{quantity}</Text>
+
             <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => setQuantity(Math.min(product.stock, quantity + 1))}
-              disabled={quantity >= product.stock}
+              style={[styles.quantityButton, !canIncrease && styles.disabledButton]}
+              onPress={() => canIncrease && setQuantity(quantity + 1)}
+              disabled={!canIncrease}
             >
               <Plus
                 size={20}
-                color={quantity >= product.stock ? colors.neutral[400] : colors.primary.green}
+                color={canIncrease ? colors.primary.green : colors.neutral[400]}
               />
             </TouchableOpacity>
           </View>
+
           <Button
-            title="Add to Cart"
+            title="Ajouter au panier"
             onPress={handleAddToCart}
             style={styles.addButton}
           />
@@ -184,88 +206,90 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: spacing['2xl'],
+    top: 50,
     left: spacing.lg,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
-    ...shadows.md,
+    ...shadows.lg,
   },
   imageContainer: {
     width: '100%',
-    height: 300,
-    backgroundColor: colors.neutral[200],
+    height: 360,
+    backgroundColor: colors.neutral[100],
   },
   image: {
     width: '100%',
     height: '100%',
   },
   imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[200],
   },
   placeholderText: {
+    fontSize: 18,
     color: colors.neutral[500],
-    fontSize: typography.sizes.base,
   },
   content: {
     padding: spacing.lg,
+    paddingTop: spacing.xl,
   },
   title: {
     fontSize: typography.sizes['2xl'],
     fontWeight: '700',
     color: colors.neutral[900],
-    marginBottom: spacing.base,
+    marginBottom: spacing.md,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.base,
+    alignItems: 'flex-end',
+    marginBottom: spacing.lg,
   },
   price: {
-    fontSize: typography.sizes['3xl'],
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: colors.primary.green,
   },
   unit: {
     fontSize: typography.sizes.sm,
     color: colors.neutral[600],
+    marginTop: 2,
   },
   stockBadge: {
-    backgroundColor: colors.accent.sand,
+    backgroundColor: colors.success + '20',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+  },
+  outOfStockBadge: {
+    backgroundColor: colors.error + '20',
   },
   stockText: {
     fontSize: typography.sizes.sm,
-    color: colors.neutral[700],
+    color: colors.success,
     fontWeight: '600',
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   location: {
-    fontSize: typography.sizes.base,
-    color: colors.neutral[600],
     marginLeft: spacing.xs,
+    fontSize: typography.sizes.base,
+    color: colors.neutral[700],
   },
   divider: {
     height: 1,
     backgroundColor: colors.neutral[200],
-    marginVertical: spacing.lg,
-  },
-  sellerSection: {
-    marginBottom: spacing.lg,
+    marginVertical: spacing.xl,
   },
   sectionTitle: {
     fontSize: typography.sizes.lg,
@@ -274,68 +298,78 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sellerCard: {
-    backgroundColor: colors.accent.sand,
+    backgroundColor: colors.neutral[50],
     borderRadius: borderRadius.xl,
-    padding: spacing.base,
+    padding: spacing.lg,
+    ...shadows.sm,
   },
   sellerInfo: {},
   sellerName: {
     fontSize: typography.sizes.lg,
     fontWeight: '600',
     color: colors.neutral[900],
-    marginBottom: spacing.xs / 2,
   },
   sellerLocation: {
     fontSize: typography.sizes.sm,
     color: colors.neutral[600],
-    marginBottom: spacing.sm,
+    marginTop: 2,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: spacing.sm,
   },
   ratingText: {
+    marginLeft: spacing.xs,
     fontSize: typography.sizes.sm,
     color: colors.neutral[700],
-    marginLeft: spacing.xs,
   },
-  descriptionSection: {},
+  descriptionSection: {
+    marginBottom: spacing.xl,
+  },
   description: {
     fontSize: typography.sizes.base,
     color: colors.neutral[700],
-    lineHeight: typography.sizes.base * typography.lineHeights.relaxed,
+    lineHeight: 24,
   },
   footer: {
-    backgroundColor: colors.background,
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral[200],
     flexDirection: 'row',
     alignItems: 'center',
-    ...shadows.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+    ...shadows.xl,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: spacing.base,
+    backgroundColor: colors.neutral[100],
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginRight: spacing.lg,
   },
   quantityButton: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.accent.sand,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
   quantityText: {
-    marginHorizontal: spacing.base,
-    fontSize: typography.sizes.xl,
+    marginHorizontal: spacing.lg,
+    fontSize: 20,
     fontWeight: '600',
-    color: colors.neutral[900],
-    minWidth: 32,
+    minWidth: 40,
     textAlign: 'center',
   },
   addButton: {
     flex: 1,
+    marginLeft: spacing.base,
   },
 });

@@ -1,76 +1,88 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  Image,
+} from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Package, Edit, Trash2 } from 'lucide-react-native';
-import api from '@/lib/api'; // Updated import
+
+import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, typography, spacing, borderRadius, shadows } from '@/constants/theme';
 import { Product } from '@/types/database';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { EmptyState } from '@/components/EmptyState';
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+
 export default function SellerProductsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Recharge les produits à chaque fois que l'écran est focus
   useFocusEffect(
-      useCallback(() => {
-    if (user?.id) {
-      loadProducts(user.id);
-    }
-  }, [user?.id])
+    useCallback(() => {
+      if (user?.id) {
+        loadProducts(user.id);
+      }
+    }, [user?.id])
+  );
 
-
-
-)
   const loadProducts = async (sellerId: string) => {
     try {
+      setLoading(true);
       const { data } = await api.get(`/products/seller/${sellerId}`);
-      setProducts(data || []);
-    } catch (error) {
+      // Le backend renvoie { success: true, data: [...] }
+      setProducts(data?.data || []);
+    } catch (error: any) {
       console.error('Error loading products:', error);
+      Alert.alert('Erreur', 'Impossible de charger vos produits');
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = (product: Product) => {
-    Alert.alert('Delete Product', `Are you sure you want to delete "${product.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/products/${product.id}`);
-            setProducts(products.filter((p) => p.id !== product.id));
-          } catch (error) {
-            Alert.alert('Error', 'Failed to delete product');
-          }
+    Alert.alert(
+      'Supprimer le produit',
+      `Voulez-vous vraiment supprimer "${product.title}" ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/products/${product.id}`);
+              setProducts(prev => prev.filter(p => p.id !== product.id));
+            } catch (error) {
+              Alert.alert('Erreur', 'Échec de la suppression du produit');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner />;
 
   if (products.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.emptyContainer}>
-          <EmptyState
-            icon={<Package size={64} color={colors.neutral[400]} />}
-            title="No products yet"
-            description="Start by adding your first product"
-            actionLabel="Add Product"
-            onAction={() => router.push('/(seller)/(tabs)/add-product')}
-          />
-        </View>
+        <EmptyState
+          icon={<Package size={80} color={colors.neutral[400]} />}
+          title="Aucun produit"
+          description="Commencez par ajouter votre premier produit"
+          actionLabel="Ajouter un produit"
+          onAction={() => router.push('/(seller)/(tabs)/add-product')}
+        />
       </View>
     );
   }
@@ -78,49 +90,76 @@ export default function SellerProductsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Products</Text>
+        <Text style={styles.headerTitle}>Mes produits</Text>
       </View>
 
       <FlatList
         data={products}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
-          const images = item.images as string[];
+          // Gestion sécurisée des images (tableau d'objets { url, publicId })
+          const mainImageUrl =
+            item.main_image ||
+            (Array.isArray(item.images) && item.images[0]?.url) ||
+            null;
+
           return (
             <View style={styles.productCard}>
+              {/* Image du produit */}
+              {mainImageUrl ? (
+                <Image source={{ uri: mainImageUrl }} style={styles.productImage} />
+              ) : (
+                <View style={[styles.productImage, styles.placeholderImage]}>
+                  <Package size={32} color={colors.neutral[400]} />
+                </View>
+              )}
+
+              {/* Infos */}
               <View style={styles.productInfo}>
                 <Text style={styles.productTitle} numberOfLines={2}>
                   {item.title}
                 </Text>
+
                 <Text style={styles.productPrice}>
-                  {item.price} XAF / {item.unit}
+                  {Number(item.price).toLocaleString()} FCFA {item.unit ? `/ ${item.unit}` : ''}
                 </Text>
+
                 <View style={styles.stockRow}>
-                  <Text style={styles.stockText}>Stock: {item.stock}</Text>
+                  <Text style={styles.stockText}>Stock : {item.stock}</Text>
+
                   <View
                     style={[
                       styles.statusBadge,
-                      { backgroundColor: item.is_active ? colors.success : colors.neutral[300] },
+                      {
+                        backgroundColor: item.is_active
+                          ? colors.success
+                          : colors.neutral[300],
+                      },
                     ]}
                   >
                     <Text style={styles.statusText}>
-                      {item.is_active ? 'Active' : 'Inactive'}
+                      {item.is_active ? 'Actif' : 'Inactif'}
                     </Text>
                   </View>
                 </View>
               </View>
+
+              {/* Actions */}
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() =>
                     router.push({
                       pathname: '/(seller)/screen/UpdateScreen',
-                      params: {productId: item.id},
+                      params: { productId: item.id },
                     })
                   }
                 >
                   <Edit size={18} color={colors.primary.green} />
                 </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() => handleDelete(item)}
@@ -131,7 +170,6 @@ export default function SellerProductsScreen() {
             </View>
           );
         }}
-        contentContainerStyle={styles.listContent}
       />
     </View>
   );
@@ -145,8 +183,10 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing['2xl'],
-    paddingBottom: spacing.base,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[200],
   },
   headerTitle: {
     fontSize: typography.sizes['2xl'],
@@ -159,23 +199,34 @@ const styles = StyleSheet.create({
   productCard: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.xl,
-    padding: spacing.base,
-    marginBottom: spacing.base,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    ...shadows.sm,
+    alignItems: 'center',
+    ...shadows.md,
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.lg,
+    marginRight: spacing.md,
+  },
+  placeholderImage: {
+    backgroundColor: colors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   productInfo: {
     flex: 1,
   },
   productTitle: {
-    fontSize: typography.sizes.base,
+    fontSize: typography.sizes.lg,
     fontWeight: '600',
     color: colors.neutral[900],
     marginBottom: spacing.xs,
   },
   productPrice: {
-    fontSize: typography.sizes.lg,
+    fontSize: typography.sizes.xl,
     fontWeight: '700',
     color: colors.primary.green,
     marginBottom: spacing.sm,
@@ -183,15 +234,15 @@ const styles = StyleSheet.create({
   stockRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
   stockText: {
     fontSize: typography.sizes.sm,
     color: colors.neutral[600],
-    marginRight: spacing.sm,
   },
   statusBadge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: borderRadius.sm,
   },
   statusText: {
@@ -201,19 +252,14 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.sm,
   },
   actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.md,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.neutral[100],
-    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.sm,
-  },
-  emptyContainer: {
-    flex: 1,
-    paddingTop: spacing['2xl'],
+    alignItems: 'center',
   },
 });

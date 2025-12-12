@@ -35,7 +35,7 @@ exports.createOrder = async (req, res) => {
     });
   }
 };
-export const updateOrderStatus = async (order_id,status) => {
+exports.updateOrderStatus = async (order_id,status) => {
   try{
     const [updatedRows] = await Order.update({ status }, {
       where: { id: order_id },
