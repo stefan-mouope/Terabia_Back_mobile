@@ -4,7 +4,63 @@ const deliveryController = require('./deliveryController');
 const sequelize = Order.sequelize; 
 
 /**
- * Crée une nouvelle commande et la livraison associée en utilisant une transaction.
+ * Cré// backend/controllers/orderController.js
+
+const { Order } = require('../models');
+const { updateOrderStatus } = require('../services/orderService'); // ✔️ ajout
+
+exports.createOrder = async (req, res) => {
+  try {
+    const { customer_id, product, quantity, status } = req.body;
+
+    const order = await Order.create({
+      customer_id,
+      product,
+      quantity,
+      status: status || "pending"
+    });
+
+    res.status(201).json(order);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getOrders = async (req, res) => {
+  try {
+    const orders = await Order.findAll();
+    res.status(200).json(orders);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { product, quantity, status } = req.body;
+
+    const [updatedRows] = await Order.update(
+      { product, quantity, status },
+      { where: { id } }
+    );
+
+    if (updatedRows === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const updatedOrder = await Order.findByPk(id);
+    res.status(200).json(updatedOrder);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ❌ L’ANCIENNE FONCTION updateOrderStatus a été supprimée ici
+e une nouvelle commande et la livraison associée en utilisant une transaction.
  */
 exports.createOrder = async (req, res) => {
   // Démarre la transaction pour lier la Commande et la Livraison
